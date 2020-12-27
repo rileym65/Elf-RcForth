@@ -1,7 +1,31 @@
-include    bios.inc
+; *******************************************************************
+; *** This software is copyright 2006 by Michael H Riley          ***
+; *** You have permission to use, modify, copy, and distribute    ***
+; *** this software so long as this copyright notice is retained. ***
+; *** This software may not be used in commercial applications    ***
+; *** without express written permission from the author.         ***
+; *******************************************************************
 
-; #define PICOROM
-; #define ELFOS
+;[RLA] These are defined on the rcasm command line!
+;[RLA] #define ELFOS            ; build the version that runs under Elf/OS
+;[RLA] #define STGROM           ; build the STG EPROM version
+;[RLA] #define PICOROM          ; define for Mike's PIcoElf version
+
+;[RLA]   rcasm doesn't have any way to do a logical "OR" of assembly
+;[RLA} options, so define a master "ANYROM" option that's true for
+;[RLA} any of the ROM conditions...
+#ifdef PICOROM
+#define ANYROM
+#endif
+#ifdef STGROM
+#define ANYROM
+#endif
+
+#ifdef STGROM
+include config.inc              ;[RLA] STG ROM addresses and options
+#endif
+
+include    bios.inc
 
 #ifdef PICOROM
 xopenw:    equ     08006h
@@ -10,6 +34,16 @@ xread:     equ     0800ch
 xwrite:    equ     0800fh
 xclosew:   equ     08012h
 xcloser:   equ     08015h
+#endif
+
+#ifdef STGROM
+;[RLA] XMODEM entry vectors for the STG EPROM ...
+xopenw:    equ     XMODEM + 0*3
+xopenr:    equ     XMODEM + 1*3
+xread:     equ     XMODEM + 2*3
+xwrite:    equ     XMODEM + 3*3
+xclosew:   equ     XMODEM + 4*3
+xcloser:   equ     XMODEM + 5*3
 #endif
 
 #ifdef ELFOS
@@ -86,7 +120,7 @@ saveaddr:  equ     0c000h
 T_NUM:     equ     255
 T_ASCII:   equ     254
 
-#ifdef PICOROM
+#ifdef ANYROM
 buffer:    equ     0200h
 himem:     equ     300h
 rstack:    equ     302h
@@ -110,6 +144,12 @@ include    build.inc
 
 #ifdef PICOROM
            org     0a000h
+#endif
+#ifdef STGROM
+           org     FORTH
+#endif
+
+#ifdef     ANYROM
            lbr     new
            mov     r2,stack
            mov     r6,old
@@ -121,7 +161,7 @@ new:       mov     r2,stack
 
 start:     ldi     high himem          ; get page of data segment
            phi     r9                  ; place into r9
-#ifdef PICOROM
+#ifdef ANYROM
            ldi     0ch                ; form feed
            sep     scall               ; clear screen
            dw      f_type
@@ -2542,7 +2582,7 @@ cef4:      plo     rb                  ; prepare to put on stack
            dw      push
            lbr     good
 
-#ifdef PICOROM
+#ifdef ANYROM
 csave:     push    rf                  ; save consumed registers
            push    rc
            sep     scall               ; open XMODEM channel for writing
@@ -2643,7 +2683,7 @@ csave:     ghi     r2                  ; transfer machine stack
            lbr     good                ; return
 #endif
 
-#ifdef PICOROM
+#ifdef ANYROM
 cload:     push    rf                  ; save consumed registers
            push    rc
            sep     scall               ; open XMODEM channel for reading
@@ -2740,7 +2780,7 @@ cload:     ghi     r2                  ; transfer machine stack
 cbye:      lbr     O_WRMBOOT           ; return to os
 #endif
 
-#ifdef PICOROM
+#ifdef ANYROM
 cbye:      lbr     08003h              ; return to menu
 #endif
 
