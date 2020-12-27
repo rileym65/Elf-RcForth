@@ -1,6 +1,6 @@
 include    bios.inc
 
-#define PICOROM
+; #define PICOROM
 ; #define ELFOS
 
 #ifdef PICOROM
@@ -15,7 +15,8 @@ xcloser:   equ     08015h
 #ifdef ELFOS
 include    kernel.inc
            org     8000h
-           db      'RCFORTH',0
+           lbr     0ff00h
+           db      'rcforth',0
            dw      9000h
            dw      endrom+7000h
            dw      2000h
@@ -103,11 +104,17 @@ stack:     equ     00ffh;
            org     02000h
            br      start
 include    date.inc
+include    build.inc
+           db      'Written by Michael H. Riley',0
 #endif
 
 #ifdef PICOROM
            org     0a000h
+           lbr     new
            mov     r2,stack
+           mov     r6,old
+           lbr     f_initcall
+new:       mov     r2,stack
            mov     r6,start
            lbr     f_initcall
 #endif
@@ -129,11 +136,10 @@ start:     ldi     high himem          ; get page of data segment
 ; ************************************************
 ; **** Determine how much memory is installed ****
 ; ************************************************
-           ldi     high storage
-           adi     1                   ; start 1 page higher
-           phi     rb
-           ldi     0                   ; beginning of page
-           plo     rb
+           sep     scall                ; ask BIOS for memory size
+           dw      f_freemem
+           mov     rb,rf
+
            ldi     low freemem         ; free memory pointer
            plo     r9                  ; place into date pointer
            ldi     storage.1
@@ -141,22 +147,24 @@ start:     ldi     high himem          ; get page of data segment
            inc     r9
            ldi     storage.0
            str     r9
-memlp:     ldi     0                   ; get a zero
-           str     rb                  ; write to memory
-           ldn     rb                  ; recover retrieved byte
-           bnz     memdone             ; jump if not same
-           ldi     255                 ; another value
-           str     rb                  ; write to memory
-           ldn     rb                  ; retrieve it
-           smi     255                 ; compare against written
-           bnz     memdone             ; jump if not same
-           ghi     rb
-           adi     1                   ; point to next page
-           phi     rb                  ; and put it back
-           smi     7fh                 ; prevent from going over 7f00h
-           bnz     memlp
-memdone:   dec     rb                  ; move back into writable memory
-           ldi     low himem           ; memory pointer
+
+
+
+;memlp:     ldi     0                   ; get a zero
+;           str     rb                  ; write to memory
+;           ldn     rb                  ; recover retrieved byte
+;           bnz     memdone             ; jump if not same
+;           ldi     255                 ; another value
+;           str     rb                  ; write to memory
+;           ldn     rb                  ; retrieve it
+;           smi     255                 ; compare against written
+;           bnz     memdone             ; jump if not same
+;           ghi     rb
+;           adi     1                   ; point to next page
+;           phi     rb                  ; and put it back
+;           smi     7fh                 ; prevent from going over 7f00h
+;           bnz     memlp
+memdone:   ldi     low himem           ; memory pointer
            plo     r9                  ; place into r9
            ghi     rb                  ; get high of last memory
            str     r9                  ; write to data
@@ -202,6 +210,40 @@ memdone:   dec     rb                  ; move back into writable memory
            inc     rf
            str     rf
            inc     rf
+           lbr     mainlp
+
+old:       ldi     low himem           ; memory pointer
+           plo     r9                  ; place into r9
+           lda     r9                  ; retreive high memory
+           phi     rb
+           phi     r2                  ; and to machine stack
+           lda     r9
+           plo     rb
+           plo     r2
+           ldi     low rstack          ; get return stack address
+           plo     r9                  ; select in data segment
+           ghi     rb                  ; get hi memory
+           smi     1                   ; 1 page lower for forth stack
+           str     r9                  ; write to pointer
+           inc     r9                  ; point to low byte
+           glo     rb                  ; get low byte
+           str     r9                  ; and store
+           ldi     low tos             ; get stack address
+           plo     r9                  ; select in data segment
+           ghi     rb                  ; get hi memory
+           smi     2                   ; 2 page lower for forth stack
+           str     r9                  ; write to pointer
+           inc     r9                  ; point to low byte
+           glo     rb                  ; get low byte
+           str     r9                  ; and store
+           ldi     low fstack          ; get stack address
+           plo     r9                  ; select in data segment
+           ghi     rb                  ; get hi memory
+           smi     2                   ; 2 page lower for forth stack
+           str     r9                  ; write to pointer
+           inc     r9                  ; point to low byte
+           glo     rb                  ; get low byte
+           str     r9                  ; and store
 
 ; *************************
 ; *** Main program loop ***
@@ -224,6 +266,9 @@ mainlp:    ldi     high prompt         ; address of prompt
            plo     rf
            sep     scall               ; call bios
            dw      f_msg               ; function to display a message
+           mov     rf,buffer           ; convert to uppercase
+           sep     scall
+           dw      touc
            sep     scall               ; call tokenizer
            dw      tknizer
 
@@ -239,7 +284,7 @@ mainlp:    ldi     high prompt         ; address of prompt
        dw      exec
 
 
-           br      mainlp              ; return to beginning of main loop
+           lbr     mainlp              ; return to beginning of main loop
 
 ; **************************************
 ; *** Display a character, char in D ***
@@ -273,12 +318,12 @@ pop:       sex     r2                  ; be sure x points to stack
            str     r2                  ; place into memory
            ghi     ra                  ; get high byte of forth stack
            sm                          ; check if same
-           bnz     stackok             ; jump if ok
+           lbnz    stackok             ; jump if ok
            ldn     r9                  ; get low byte of tos
            str     r2
            glo     ra                  ; check low byte of stack pointer
            sm
-           bnz     stackok             ; jump if ok
+           lbnz    stackok             ; jump if ok
            ldi     1                   ; signal error
 popret:    shr                         ; shift status into DF
            sep     sret                ; return to caller
@@ -295,7 +340,7 @@ stackok:   inc     ra                  ; point to high byte
            glo     ra                  ; get low byte
            str     r9                  ; and store
            ldi     0                   ; signal no error
-           br      popret              ; and return to caller
+           lbr     popret              ; and return to caller
 
 ; ********************************************************
 ; *** Function to push value onto stack, value in R[B] ***
@@ -480,10 +525,53 @@ mulcont2:  glo     rb                  ; shift first number
            phi     rb
            lbr     mulloop             ; loop until done
 
-; *** RC = RB/R7
+; ************************************
+; *** make both arguments positive ***
+; *** Arg1 RB                      ***
+; *** Arg2 R7                      ***
+; *** Returns D=0 - signs same     ***
+; ***         D=1 - signs difer    ***
+; ************************************
+mdnorm:    ghi     rb                  ; get high byte if divisor
+           str     r2                  ; store for sign check
+           ghi     r7                  ; get high byte of dividend
+           xor                         ; compare
+           shl                         ; shift into df
+           ldi     0                   ; convert to 0 or 1
+           shlc                        ; shift into D
+           plo     re                  ; store into sign flag
+           ghi     rb                  ; need to see if RB is negative
+           shl                         ; shift high byte to df
+           lbnf    mdnorm2             ; jump if not
+           ghi     rb                  ; 2s compliment on RB
+           xri     0ffh
+           phi     rb
+           glo     rb
+           xri     0ffh
+           plo     rb
+           inc     rb
+mdnorm2:   ghi     r7                  ; now check r7 for negative
+           shl                         ; shift sign bit into df
+           lbnf    mdnorm3             ; jump if not
+           ghi     r7                  ; 2 compliment on R7
+           xri     0ffh
+           phi     r7
+           glo     r7
+           xri     0ffh
+           plo     r7
+           inc     r7
+mdnorm3:   glo     re                  ; recover sign flag
+           sep     sret                ; and return to caller
+            
+           
+
+; *** RC = RB/R7 
 ; *** RB = remainder
 ; *** uses R8 and R9
-div16:     ldi     0                   ; clear answer 
+div16:     sep     scall               ; normalize numbers
+           dw      mdnorm
+           plo     re                  ; save sign comparison
+           ldi     0                   ; clear answer 
            phi     rc
            plo     rc
            phi     r8                  ; set additive
@@ -517,7 +605,17 @@ divst:     glo     r7                  ; get low of divisor
            lbnz    divgo               ; jump if still nonzero
            ghi     r7                  ; check hi byte too
            lbnz    divgo
-           sep     sret                ; jump if done
+           glo     re                  ; get sign flag
+           shr                         ; move to df
+           lbnf    divret              ; jump if signs were the same
+           ghi     rc                  ; perform 2s compliment on answer
+           xri     0ffh
+           phi     rc
+           glo     rc
+           xri     0ffh
+           plo     rc
+           inc     rc
+divret:    sep     sret                ; jump if done
 divgo:     ghi     rb                  ; copy dividend
            phi     r9
            glo     rb
@@ -684,7 +782,15 @@ tdotqtdn:  ldn     rb                  ; retrieve quote
 
 
 
-notoken:   ldn     rb                  ; get byte
+notoken:   ldi     0                   ; clear negative flag
+           plo     re
+           ldn     rb                  ; get byte
+           smi     '-'                 ; is it negative
+           lbnz    notoken1            ; jump if not
+           inc     rb                  ; move past negative
+           ldi     1                   ; set negative flag
+           plo     re
+notoken1:  ldn     rb                  ; get byte
            smi     '0'                 ; check for below numbers
            lbnf    nonnumber           ; jump if not a number
            ldn     rb
@@ -757,7 +863,16 @@ numbererr: ghi     rc                  ; recover address
            glo     rc
            plo     rb
            lbr     nonnumber
-numberdn:  ldi     T_NUM               ; code to signify a number
+numberdn:  glo     re                  ; get negative flag
+           lbz     numberdn1           ; jump if positive number
+           ghi     r7                  ; negative, so 2s compliment number
+           xri     0ffh
+           phi     r7
+           glo     r7
+           xri     0ffh
+           plo     r7
+           inc     r7
+numberdn1: ldi     T_NUM               ; code to signify a number
            str     rf                  ; write to code buffer
            inc     rf                  ; point to next position
            ghi     r7                  ; get high byte of number
@@ -1526,7 +1641,7 @@ notwhile:  ldn     rb                  ; retrieve byte
            smi     82h                 ; is it a repeat
            lbnz    notrep              ; jump if not
            glo     r7                  ; get while count
-           bz      fndrep              ; jump if not zero
+           lbz     fndrep              ; jump if not zero
            dec     r7                  ; decrement count
            lbr     notrep              ; and keep looking
 fndrep:    inc     rb                  ; move past the while
@@ -2433,14 +2548,20 @@ csave:     push    rf                  ; save consumed registers
            sep     scall               ; open XMODEM channel for writing
            dw      xopenw
            mov     rf,freemem          ; need pointer to freemem
-           mov     rc,buffer           ; temporary storage
            lda     rf                  ; get high address of free memory
            smi     3                   ; subtract base address
-           str     rc                  ; store into buffer
-           inc     rc                  ; point to low byte
+           phi     rc                  ; store into count
            ldn     rf                  ; get low byte of free memory
-           str     rc                  ; store into buffer
-           mov     rf,buffer           ; pointer to bytes to write
+           plo     rc                  ; store into count
+           inc     rc                  ; account for terminator
+           inc     rc
+           mov     rf,buffer           ; temporary storage
+           ghi     rc                  ; get high byte of count
+           str     rf                  ; store it
+           inc     rf                  ; point to low byte
+           glo     rc                  ; get it
+           str     rf                  ; store into buffer
+           dec     rf                  ; move back to buffer
            mov     rc,2                ; 2 bytes of length
            sep     scall               ; write to XMODEM channel
            dw      xwrite
@@ -2643,6 +2764,33 @@ setupfd:   ldi     high fildes         ; get address of file descriptor
            plo     rd
            sep     sret                ; return to caller
 #endif
+
+
+; **********************************************************
+; ***** Convert string to uppercase, honor quoted text *****
+; **********************************************************
+touc:      ldn     rf                  ; check for quote
+           smi     022h
+           lbz     touc_qt             ; jump if quote
+           ldn     rf                  ; get byte from string
+           lbz     touc_dn             ; jump if done
+           smi     'a'                 ; check if below lc
+           lbnf    touc_nxt            ; jump if so
+           smi     27                  ; check upper rage
+           lbdf    touc_nxt            ; jump if above lc
+           ldn     rf                  ; otherwise convert character to lc
+           smi     32
+           str     rf
+touc_nxt:  inc     rf                  ; point to next character
+           lbr     touc                ; loop to check rest of string
+touc_dn:   sep     sret                ; return to caller
+touc_qt:   inc     rf                  ; move past quote
+touc_qlp:  lda     rf                  ; get next character
+           lbz     touc_dn             ; exit if terminator found
+           smi     022h                ; check for quote charater
+           lbz     touc                ; back to main loop if quote
+           lbr     touc_qlp            ; otherwise keep looking
+
 
 hello:     db      'Rc/Forth 0.1'
 crlf:      db       10,13,0
