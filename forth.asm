@@ -2582,6 +2582,11 @@ cef4:      plo     rb                  ; prepare to put on stack
            dw      push
            lbr     good
 
+cstk:      mov     rb,fstack           ; get stack address
+           sep     scall               ; push onto stack
+           dw      push
+           lbr     good
+          
 #ifdef ANYROM
 csave:     push    rf                  ; save consumed registers
            push    rc
@@ -2891,6 +2896,7 @@ cmdtable:  db      'WHIL',('E'+80h)
            db      'SAV',('E'+80h)
            db      'LOA',('D'+80h)
            db      'BY',('E'+80h)
+           db      'ST',('K'+80h)
            db      0                   ; no more tokens
 cmdvecs:   dw      cwhile              ; 81h
            dw      crepeat             ; 82h
@@ -2946,6 +2952,7 @@ cmdvecs:   dw      cwhile              ; 81h
            dw      csave               ; afh
            dw      cload               ; b0h
            dw      cbye
+           dw      cstk                ; b1h
 
 endrom:    equ     $
 
