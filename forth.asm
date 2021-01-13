@@ -176,12 +176,20 @@ start:     ldi     high himem          ; get page of data segment
 ; ************************************************
 ; **** Determine how much memory is installed ****
 ; ************************************************
+#ifdef ELFOS
+           mov     rf,0442h            ; point to high memory pointer
+           lda     rf                  ; retrieve it
+           phi     rb
+           lda     rf
+           plo     rb
+#else
            sep     scall                ; ask BIOS for memory size
            dw      f_freemem
            mov     rb,rf
+#endif
 
            ldi     low freemem         ; free memory pointer
-           plo     r9                  ; place into date pointer
+           plo     r9                  ; place into data pointer
            ldi     storage.1
            str     r9
            inc     r9
