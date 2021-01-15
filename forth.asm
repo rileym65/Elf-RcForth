@@ -164,14 +164,22 @@ start:     ldi     high himem          ; get page of data segment
 #ifdef ANYROM
            ldi     0ch                ; form feed
            sep     scall               ; clear screen
+#ifdef ELFOS
+           dw      o_type
+#else
            dw      f_type
+#endif
 #endif
            ldi     high hello          ; address of signon message
            phi     rf                  ; place into r6
            ldi     low hello
            plo     rf
            sep     scall               ; call bios to display message
+#ifdef ELFOS
+           dw      o_msg
+#else
            dw      f_msg               ; function to display a message
+#endif
 
 ; ************************************************
 ; **** Determine how much memory is installed ****
@@ -301,19 +309,31 @@ mainlp:    ldi     high prompt         ; address of prompt
            ldi     low prompt
            plo     rf
            sep     scall               ; display prompt
+#ifdef ELFOS
+           dw      o_msg
+#else
            dw      f_msg               ; function to display a message
+#endif
            ldi     high buffer         ; point to input buffer
            phi     rf
            ldi     low buffer
            plo     rf
            sep     scall               ; read a line
+#ifdef ELFOS
+           dw      o_input
+#else
            dw      f_input             ; function to read a line
+#endif
            ldi     high crlf           ; address of CR/LF
            phi     rf                  ; place into r6
            ldi     low crlf  
            plo     rf
            sep     scall               ; call bios
+#ifdef ELFOS
+           dw      o_msg
+#else
            dw      f_msg               ; function to display a message
+#endif
            mov     rf,buffer           ; convert to uppercase
            sep     scall
            dw      touc
@@ -338,14 +358,22 @@ mainlp:    ldi     high prompt         ; address of prompt
 ; *** Display a character, char in D ***
 ; **************************************
 disp:      sep     scall               ; call bios
+#ifdef ELFOS
+           dw      o_type
+#else
            dw      f_type              ; function to type a charactr
+#endif
            sep     sret                ; return to caller
 
 ; ********************************
 ; *** Read a key, returns in D ***
 ; ********************************
 getkey:    sep     scall               ; call bios
+#ifdef ELFOS
+           dw      o_readkey
+#else
            dw      f_read              ; function to read a key
+#endif
            sep     sret                ; return to caller
 
 ; ***************************************************
@@ -1100,7 +1128,11 @@ execret:   sex     r2                  ; be sure X poits to stack
            ldi     low msempty
            plo     rf
 execrmsg:  sep     scall
+#ifdef ELFOS
+           dw      o_msg
+#else
            dw      f_msg
+#endif
            sep     sret                ; return to caller
 
 execnum:   inc     rb                  ; point to number
