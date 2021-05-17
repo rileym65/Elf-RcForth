@@ -17,11 +17,13 @@ elfos: $(PROJECT).asm
 	mv x.prg $(PROJECT).prg
 
 picoelf: $(PROJECT).asm
-	../date.pl > date.inc
 	rcasm  -l -v -x -d 1802 -DPICOROM $(PROJECT) 2>&1 | tee forth.lst
 	cat $(PROJECT).prg | sed -f adjust.sed > x.prg
 	rm $(PROJECT).prg
 	mv x.prg $(PROJECT).prg
+
+mchip: $(PROJECT).asm
+	rcasm  -l -v -x -d 1802 -DMCHIP $(PROJECT) 2>&1 | tee forth.lst
 
 stg: $(PROJECT).asm
 	../date.pl > date.inc

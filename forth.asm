@@ -14,29 +14,53 @@
 ;[RLA]   rcasm doesn't have any way to do a logical "OR" of assembly
 ;[RLA} options, so define a master "ANYROM" option that's true for
 ;[RLA} any of the ROM conditions...
+
+#ifdef MCHIP
+#define ANYROM
+#define    CODE    02000h
+xopenw:    equ     07006h
+xopenr:    equ     07009h
+xread:     equ     0700ch
+xwrite:    equ     0700fh
+xclosew:   equ     07012h
+xcloser:   equ     07015h
+buffer:    equ     08200h
+himem:     equ     08300h
+rstack:    equ     08302h
+tos:       equ     08304h
+freemem:   equ     08306h
+fstack:    equ     08308h
+jump:      equ     0830ah
+storage:   equ     0830dh
+stack:     equ     081ffh
+exitaddr:  equ     07003h
+#endif
+
 #ifdef PICOROM
 #define ANYROM
-#endif
-#ifdef STGROM
-#define ANYROM
-#endif
-
-#ifdef STGROM
-include config.inc              ;[RLA] STG ROM addresses and options
-#endif
-
-include    bios.inc
-
-#ifdef PICOROM
+#define    CODE    0a000h
 xopenw:    equ     08006h
 xopenr:    equ     08009h
 xread:     equ     0800ch
 xwrite:    equ     0800fh
 xclosew:   equ     08012h
 xcloser:   equ     08015h
+buffer:    equ     0200h
+himem:     equ     300h
+rstack:    equ     302h
+tos:       equ     304h
+freemem:   equ     306h
+fstack:    equ     308h
+jump:      equ     30ah
+storage:   equ     30dh
+stack:     equ     01ffh
+exitaddr:  equ     08003h
 #endif
 
 #ifdef STGROM
+#define ANYROM
+#define    CODE    FORTH
+include config.inc              ;[RLA] STG ROM addresses and options
 ;[RLA] XMODEM entry vectors for the STG EPROM ...
 xopenw:    equ     XMODEM + 0*3
 xopenr:    equ     XMODEM + 1*3
@@ -44,7 +68,25 @@ xread:     equ     XMODEM + 2*3
 xwrite:    equ     XMODEM + 3*3
 xclosew:   equ     XMODEM + 4*3
 xcloser:   equ     XMODEM + 5*3
+buffer:    equ     0200h
+himem:     equ     300h
+rstack:    equ     302h
+tos:       equ     304h
+freemem:   equ     306h
+fstack:    equ     308h
+jump:      equ     30ah
+storage:   equ     30dh
+stack:     equ     01ffh
+exitaddr:  equ     08003h
 #endif
+
+#ifdef ELFOS
+#define    CODE    02000h
+stack:     equ     00ffh;
+exitaddr:  equ     o_wrmboot
+#endif
+
+include    bios.inc
 
 #ifdef ELFOS
 include    kernel.inc
@@ -120,33 +162,13 @@ saveaddr:  equ     0c000h
 T_NUM:     equ     255
 T_ASCII:   equ     254
 
-#ifdef ANYROM
-buffer:    equ     0200h
-himem:     equ     300h
-rstack:    equ     302h
-tos:       equ     304h
-freemem:   equ     306h
-fstack:    equ     308h
-jump:      equ     30ah
-storage:   equ     30dh
-stack:     equ     01ffh
-#endif
-
+           org     CODE
 
 #ifdef ELFOS
-stack:     equ     00ffh;
-           org     02000h
            br      start
 include    date.inc
 include    build.inc
            db      'Written by Michael H. Riley',0
-#endif
-
-#ifdef PICOROM
-           org     0a000h
-#endif
-#ifdef STGROM
-           org     FORTH
 #endif
 
 #ifdef     ANYROM
@@ -2634,7 +2656,11 @@ csave:     push    rf                  ; save consumed registers
            dw      xopenw
            mov     rf,freemem          ; need pointer to freemem
            lda     rf                  ; get high address of free memory
+#ifdef MCHIP
+           smi     083h                ; subtract base address
+#else
            smi     3                   ; subtract base address
+#endif
            phi     rc                  ; store into count
            ldn     rf                  ; get low byte of free memory
            plo     rc                  ; store into count
@@ -2821,13 +2847,7 @@ cload:     ghi     r2                  ; transfer machine stack
            lbr     mainlp              ; back to main loop
 #endif
 
-#ifdef ELFOS
-cbye:      lbr     O_WRMBOOT           ; return to os
-#endif
-
-#ifdef ANYROM
-cbye:      lbr     08003h              ; return to menu
-#endif
+cbye:      lbr     exitaddr
 
 #ifdef ELFOS
 setupfd:   ldi     high fildes         ; get address of file descriptor
