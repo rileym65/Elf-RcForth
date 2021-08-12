@@ -86,7 +86,7 @@ stack:     equ     00ffh;
 exitaddr:  equ     o_wrmboot
 #endif
 
-include    bios.inc
+include    ../bios.inc
 
 #ifdef ELFOS
 include    kernel.inc

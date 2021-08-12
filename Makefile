@@ -1,36 +1,35 @@
 PROJECT = forth
 
 $(PROJECT).rom: $(PROJECT).asm
+	echo Building for Elf/OS
 	../dateextended.pl > date.inc
 	../build.pl > build.inc
-	rcasm  -l -v -x -d 1802 -DELFOS $(PROJECT) 2>&1 | tee forth.lst
-	cat $(PROJECT).prg | sed -f adjust.sed > x.prg
-	rm $(PROJECT).prg
-	mv x.prg $(PROJECT).prg
+	asm02 -l -L -DELFOS $(PROJECT).asm
+	mv $(PROJECT).prg x.prg
+	cat x.prg | sed -f adjust.sed > $(PROJECT).prg
+	rm x.prg
 
 elfos: $(PROJECT).asm
+	echo Building for Elf/OS
 	../dateextended.pl > date.inc
 	../build.pl > build.inc
-	rcasm  -l -v -x -d 1802 -DELFOS $(PROJECT) 2>&1 | tee forth.lst
-	cat $(PROJECT).prg | sed -f adjust.sed > x.prg
-	rm $(PROJECT).prg
-	mv x.prg $(PROJECT).prg
+	asm02 -l -L -DELFOS $(PROJECT).asm
+	mv $(PROJECT).prg x.prg
+	cat x.prg | sed -f adjust.sed > $(PROJECT).prg
+	rm x.prg
 
 picoelf: $(PROJECT).asm
-	rcasm  -l -v -x -d 1802 -DPICOROM $(PROJECT) 2>&1 | tee forth.lst
-	cat $(PROJECT).prg | sed -f adjust.sed > x.prg
-	rm $(PROJECT).prg
-	mv x.prg $(PROJECT).prg
+	asm02 -l -L -DPICOROM $(PROJECT).asm
 
 mchip: $(PROJECT).asm
-	rcasm  -l -v -x -d 1802 -DMCHIP $(PROJECT) 2>&1 | tee forth.lst
+	asm02 -l -L -DMCHIP $(PROJECT).asm
 
 stg: $(PROJECT).asm
 	../date.pl > date.inc
-	rcasm  -l -v -x -d 1802 -DSTGROM $(PROJECT) 2>&1 | tee forth.lst
-	cat $(PROJECT).prg | sed -f adjust.sed > x.prg
-	rm $(PROJECT).prg
-	mv x.prg $(PROJECT).prg
+	asm02 -l -L -DSTGROM $(PROJECT).asm
+	mv $(PROJECT).prg x.prg
+	cat x.prg | sed -f adjust.sed > $(PROJECT).prg
+	rm x.prg
 
 
 clean:
